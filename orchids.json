@@ -1,0 +1,242 @@
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+const AppContext = createContext(null);
+
+// ── Helper: convert File to base64 ───────────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Helper: call Claude API with PDF ─────────────────────────────────────────
+async function analyzePDFWithClaude(base64Data) {
+  const systemPrompt = `You are a PDF analysis expert. Analyze the provided PDF and return ONLY a valid JSON object with no preamble, no markdown, no backticks.
+
+The JSON must follow this exact structure:
+{
+  "title": "string - the document title or inferred title",
+  "pageCount": number,
+  "wordCount": number,
+  "topics": ["topic1", "topic2", "topic3", "topic4", "topic5"],
+  "summary": {
+    "short": "2-3 sentence summary",
+    "detailed": "Multi-paragraph detailed summary with **bold** for key terms"
+  },
+  "eli5": "Explain Like I am 5 - simple analogy-based explanation in 3-4 sentences",
+  "keyPoints": ["point1", "point2", "point3", "point4", "point5", "point6"],
+  "importantQuestions": ["question1", "question2", "question3", "question4", "question5"],
+  "flowchart": [
+    { "id": "A", "label": "string", "type": "start" },
+    { "id": "B", "label": "string", "type": "process" },
+    { "id": "C", "label": "string", "type": "decision" },
+    { "id": "D", "label": "string", "type": "end" }
+  ],
+  "youtubeVideos": [
+    { "title": "string", "channel": "string", "duration": "HH:MM", "views": "string", "searchQuery": "string" },
+    { "title": "string", "channel": "string", "duration": "HH:MM", "views": "string", "searchQuery": "string" },
+    { "title": "string", "channel": "string", "duration": "HH:MM", "views": "string", "searchQuery": "string" },
+    { "title": "string", "channel": "string", "duration": "HH:MM", "views": "string", "searchQuery": "string" }
+  ],
+  "visualization": {
+    "type": "bar",
+    "title": "string - chart title",
+    "description": "string - one sentence what it shows",
+    "barData": [{ "label": "string", "value": number, "unit": "string" }],
+    "pieData": [{ "name": "string", "value": number, "color": "#hexcolor" }],
+    "lineData": [{ "label": "string", "value": number }],
+    "radarData": [{ "skill": "string", "score": number }],
+    "insights": ["insight1", "insight2", "insight3"]
+  },
+  "numericalData": [
+    { "algorithm": "Label", "accuracy": number }
+  ]
+}
+
+RULES:
+1. flowchart: extract main process from document (4-8 nodes). Types: start, end, process, decision.
+2. visualization.type: choose the best chart - bar (comparisons), pie (proportions/percentages), line (trends/time), radar (multi-dimension). Extract REAL numbers from document if present.
+3. visualization.barData/pieData/lineData/radarData: populate the array matching the chosen type with real extracted data.
+4. numericalData: extract real numbers if available, otherwise use top concepts with importance scores 1-100.
+5. youtubeVideos: suggest 4 realistic YouTube videos for learning about this document's topics.
+6. Return ONLY the JSON. No text before or after.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: 'application/pdf', data: base64Data },
+            },
+            { type: 'text', text: 'Analyze this PDF and return the structured JSON.' },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+  const data = await response.json();
+  const rawText = data.content?.find(b => b.type === 'text')?.text || '';
+  const clean = rawText.replace(/```json\n?|```\n?/g, '').trim();
+  return JSON.parse(clean);
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
+export function AppProvider({ children }) {
+  // Theme
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved !== null) return JSON.parse(saved);
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
+  // Sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // PDF state
+  const [uploadedPDF, setUploadedPDF] = useState(null);
+  const [pdfProcessing, setPdfProcessing] = useState(false);
+  const [pdfResult, setPdfResult] = useState(null);
+  const [pdfError, setPdfError] = useState(null);
+
+  const processPDF = useCallback(async (file) => {
+    setUploadedPDF(file);
+    setPdfProcessing(true);
+    setPdfResult(null);
+    setPdfError(null);
+
+    // Demo mode: file is a fake object (not a real File instance)
+    const isSampleDemo = !(file instanceof File) || file.size === 0;
+
+    try {
+      if (isSampleDemo) {
+        await new Promise(r => setTimeout(r, 2800));
+        const { samplePDFResult } = await import('../data/mockData.js');
+        setPdfResult(samplePDFResult);
+        setPdfProcessing(false);
+        return samplePDFResult;
+      }
+
+      // Real PDF: convert and call Claude API
+      const base64 = await fileToBase64(file);
+      const result = await analyzePDFWithClaude(base64);
+
+      // Ensure all required fields have fallbacks
+      result.pageCount = result.pageCount || '?';
+      result.wordCount = result.wordCount || 0;
+      result.topics = result.topics || [];
+      result.keyPoints = result.keyPoints || [];
+      result.importantQuestions = result.importantQuestions || [];
+      result.flowchart = result.flowchart || [];
+      result.youtubeVideos = result.youtubeVideos || [];
+      result.numericalData = result.numericalData || [];
+      result.visualization = result.visualization || null;
+
+      setPdfResult(result);
+      setPdfProcessing(false);
+      return result;
+    } catch (err) {
+      console.error('PDF processing error:', err);
+      setPdfError(err.message || 'Failed to analyze PDF. Please try again.');
+      setPdfProcessing(false);
+      return null;
+    }
+  }, []);
+
+  // Email state
+  const [emails, setEmails] = useState([]);
+  const [emailsLoading, setEmailsLoading] = useState(false);
+
+  const fetchEmails = useCallback(() => {
+    setEmailsLoading(true);
+    setTimeout(() => {
+      import('../data/mockData.js').then(({ mockEmails }) => {
+        setEmails(mockEmails);
+        setEmailsLoading(false);
+      });
+    }, 1200);
+  }, []);
+
+  const markEmailRead = useCallback((id) => {
+    setEmails(prev => prev.map(e => e.id === id ? { ...e, read: true } : e));
+  }, []);
+
+  // Chat state
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  useEffect(() => {
+    import('../data/mockData.js').then(({ sampleChatHistory }) => {
+      setChatHistory(sampleChatHistory);
+    });
+  }, []);
+
+  const sendMessage = useCallback(async (text) => {
+    const userMsg = { role: 'user', content: text, timestamp: new Date() };
+    setChatHistory(prev => [...prev, userMsg]);
+    setChatLoading(true);
+    await new Promise(r => setTimeout(r, 1200 + Math.random() * 800));
+    const { getChatbotResponse } = await import('../data/mockData.js');
+    const reply = getChatbotResponse(text);
+    setChatHistory(prev => [...prev, { role: 'assistant', content: reply, timestamp: new Date() }]);
+    setChatLoading(false);
+  }, []);
+
+  // Dashboard stats
+  const [studyGoal] = useState(5);
+  const [todayHours] = useState(4.5);
+  const [streak] = useState(7);
+
+  // Notifications
+  const [notifications, setNotifications] = useState([
+    { id: 1, text: 'Assignment 3 deadline extended to April 5th', type: 'info', time: '10 min ago' },
+    { id: 2, text: 'Weekly study goal achieved! 🎉', type: 'success', time: '2 hrs ago' },
+    { id: 3, text: 'New interview invitation from TechCorp', type: 'warning', time: '5 hrs ago' },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const dismissNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  return (
+    <AppContext.Provider value={{
+      darkMode, setDarkMode,
+      sidebarOpen, setSidebarOpen,
+      mobileSidebarOpen, setMobileSidebarOpen,
+      uploadedPDF, setUploadedPDF,
+      pdfProcessing, pdfResult, pdfError, processPDF,
+      emails, emailsLoading, fetchEmails, markEmailRead, setEmails,
+      chatHistory, chatLoading, sendMessage, setChatHistory,
+      studyGoal, todayHours, streak,
+      notifications, showNotifications, setShowNotifications, dismissNotification,
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useApp must be used inside AppProvider');
+  return ctx;
+}

@@ -1,0 +1,238 @@
+import { NavLink, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard, FileText, BarChart3, Mail, Bot,
+  Settings, ChevronLeft, ChevronRight, Sparkles, X,
+  GraduationCap,
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+
+const NAV_ITEMS = [
+  { to: '/',           icon: LayoutDashboard, label: 'Dashboard',     badge: null },
+  { to: '/pdf',        icon: FileText,        label: 'PDF Analyzer',  badge: null },
+  { to: '/insights',   icon: BarChart3,       label: 'Visual Insights',badge: null },
+  { to: '/email',      icon: Mail,            label: 'Email Assistant',badge: 2 },
+  { to: '/chatbot',    icon: Bot,             label: 'Study Chatbot', badge: null },
+  { to: '/settings',   icon: Settings,        label: 'Settings',      badge: null },
+];
+
+function NavItem({ item, collapsed }) {
+  const { mobileSidebarOpen, setMobileSidebarOpen } = useApp();
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      onClick={() => setMobileSidebarOpen(false)}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative
+         ${isActive
+           ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25'
+           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+         }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <item.icon
+            size={20}
+            className={`shrink-0 transition-transform duration-200 ${
+              isActive ? '' : 'group-hover:scale-110'
+            }`}
+          />
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-sm font-medium whitespace-nowrap overflow-hidden"
+              >
+                {item.label}
+              </motion.span>
+            )}
+          </AnimatePresence>
+
+          {item.badge && !collapsed && (
+            <span className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              isActive ? 'bg-white/30 text-white' : 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
+            }`}>
+              {item.badge}
+            </span>
+          )}
+
+          {/* Tooltip when collapsed */}
+          {collapsed && (
+            <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-sm rounded-lg
+                            opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200
+                            whitespace-nowrap z-50 shadow-xl">
+              {item.label}
+              {item.badge && (
+                <span className="ml-2 text-xs bg-indigo-500 text-white px-1.5 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+// Desktop sidebar
+function DesktopSidebar() {
+  const { sidebarOpen, setSidebarOpen, darkMode } = useApp();
+
+  return (
+    <motion.aside
+      animate={{ width: sidebarOpen ? 260 : 76 }}
+      transition={{ duration: 0.25, ease: 'easeInOut' }}
+      className="hidden lg:flex flex-col shrink-0 h-screen sticky top-0
+                 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
+                 overflow-hidden z-30"
+    >
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-200 dark:border-slate-800">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/30">
+          <GraduationCap size={18} className="text-white" />
+        </div>
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight whitespace-nowrap">
+                AI Learning
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                Productivity Suite
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {sidebarOpen && (
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-wider px-3 mb-3">
+            Navigation
+          </p>
+        )}
+        {NAV_ITEMS.map(item => (
+          <NavItem key={item.to} item={item} collapsed={!sidebarOpen} />
+        ))}
+      </nav>
+
+      {/* AI Status badge */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mx-3 mb-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50 border border-indigo-100 dark:border-indigo-900"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={14} className="text-indigo-500" />
+              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">AI Engine</span>
+              <span className="ml-auto w-2 h-2 bg-emerald-500 rounded-full pulse-dot" />
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">GPT-4 · Active</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Collapse toggle */}
+      <div className="px-3 pb-4">
+        <button
+          onClick={() => setSidebarOpen(p => !p)}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl
+                     text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800
+                     transition-colors text-sm"
+        >
+          {sidebarOpen
+            ? <><ChevronLeft size={16} /> <span>Collapse</span></>
+            : <ChevronRight size={16} />}
+        </button>
+      </div>
+    </motion.aside>
+  );
+}
+
+// Mobile overlay sidebar
+function MobileSidebar() {
+  const { mobileSidebarOpen, setMobileSidebarOpen } = useApp();
+
+  return (
+    <AnimatePresence>
+      {mobileSidebarOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+          />
+          <motion.aside
+            initial={{ x: -280 }}
+            animate={{ x: 0 }}
+            exit={{ x: -280 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed top-0 left-0 h-screen w-[280px] z-50 lg:hidden
+                       bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
+                       flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <GraduationCap size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">AI Learning</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Productivity Suite</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-3">Navigation</p>
+              {NAV_ITEMS.map(item => (
+                <NavItem key={item.to} item={item} collapsed={false} />
+              ))}
+            </nav>
+
+            <div className="mx-3 mb-4 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50 border border-indigo-100 dark:border-indigo-900">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-indigo-500" />
+                <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">AI Engine Active</span>
+                <span className="ml-auto w-2 h-2 bg-emerald-500 rounded-full pulse-dot" />
+              </div>
+            </div>
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <>
+      <DesktopSidebar />
+      <MobileSidebar />
+    </>
+  );
+}

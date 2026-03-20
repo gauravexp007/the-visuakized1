@@ -1,0 +1,197 @@
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Menu, Sun, Moon, Bell, Search, X, CheckCircle,
+  Info, AlertTriangle,
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+
+const PAGE_TITLES = {
+  '/':         { title: 'Dashboard',      subtitle: 'Track your learning progress' },
+  '/pdf':      { title: 'PDF Analyzer',   subtitle: 'Upload and simplify documents' },
+  '/insights': { title: 'Visual Insights',subtitle: 'Deep-dive analytics' },
+  '/email':    { title: 'Email Assistant',subtitle: 'Smart inbox management' },
+  '/chatbot':  { title: 'Study Chatbot',  subtitle: 'Ask anything about your materials' },
+  '/settings': { title: 'Settings',       subtitle: 'Customize your experience' },
+};
+
+const NOTIF_ICONS = { info: Info, success: CheckCircle, warning: AlertTriangle };
+const NOTIF_COLORS = {
+  info: 'text-blue-500 bg-blue-50 dark:bg-blue-950/50',
+  success: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50',
+  warning: 'text-amber-500 bg-amber-50 dark:bg-amber-950/50',
+};
+
+export default function Header() {
+  const location = useLocation();
+  const {
+    darkMode, setDarkMode,
+    setMobileSidebarOpen,
+    notifications, showNotifications, setShowNotifications, dismissNotification,
+  } = useApp();
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const meta = PAGE_TITLES[location.pathname] || PAGE_TITLES['/'];
+
+  return (
+    <header className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md
+                        border-b border-slate-200 dark:border-slate-800 px-4 lg:px-6 py-3">
+      <div className="flex items-center gap-3">
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
+          className="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
+        >
+          <Menu size={20} />
+        </button>
+
+        {/* Page title */}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate">
+            {meta.title}
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block truncate">
+            {meta.subtitle}
+          </p>
+        </div>
+
+        {/* Search */}
+        <AnimatePresence>
+          {searchOpen ? (
+            <motion.div
+              initial={{ width: 40, opacity: 0 }}
+              animate={{ width: 220, opacity: 1 }}
+              exit={{ width: 40, opacity: 0 }}
+              className="relative"
+            >
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search features…"
+                className="w-full pl-9 pr-8 py-2 text-sm rounded-xl bg-slate-100 dark:bg-slate-800
+                           text-slate-900 dark:text-white placeholder-slate-400 outline-none
+                           border border-transparent focus:border-indigo-500"
+              />
+              <Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" />
+              <button
+                onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X size={15} />
+              </button>
+            </motion.div>
+          ) : (
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800
+                         text-slate-500 dark:text-slate-400 transition-colors"
+            >
+              <Search size={18} />
+            </button>
+          )}
+        </AnimatePresence>
+
+        {/* Dark mode toggle */}
+        <button
+          onClick={() => setDarkMode(d => !d)}
+          className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800
+                     text-slate-500 dark:text-slate-400 transition-colors"
+          title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <motion.div
+            key={darkMode ? 'moon' : 'sun'}
+            initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+            animate={{ rotate: 0, opacity: 1, scale: 1 }}
+            transition={{ duration: 0.25 }}
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </motion.div>
+        </button>
+
+        {/* Notifications */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(p => !p)}
+            className="relative p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800
+                       text-slate-500 dark:text-slate-400 transition-colors"
+          >
+            <Bell size={18} />
+            {notifications.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full pulse-dot" />
+            )}
+          </button>
+
+          <AnimatePresence>
+            {showNotifications && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900
+                           border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl
+                           overflow-hidden z-50"
+              >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Notifications
+                    {notifications.length > 0 && (
+                      <span className="ml-2 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </h3>
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <CheckCircle size={32} className="text-emerald-400 mx-auto mb-2" />
+                      <p className="text-sm text-slate-500 dark:text-slate-400">All caught up!</p>
+                    </div>
+                  ) : (
+                    notifications.map(n => {
+                      const Icon = NOTIF_ICONS[n.type];
+                      return (
+                        <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <div className={`p-1.5 rounded-lg shrink-0 ${NOTIF_COLORS[n.type]}`}>
+                            <Icon size={14} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug">{n.text}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{n.time}</p>
+                          </div>
+                          <button
+                            onClick={() => dismissNotification(n.id)}
+                            className="text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 shrink-0"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Avatar */}
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold shrink-0 cursor-pointer hover:ring-2 hover:ring-indigo-500 hover:ring-offset-2 transition-all">
+          A
+        </div>
+      </div>
+    </header>
+  );
+}

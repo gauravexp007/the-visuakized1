@@ -1,0 +1,400 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Sun, Moon, Monitor, Bell, Shield, Database, Palette,
+  User, Key, Globe, Volume2, Sliders, ChevronRight,
+  CheckCircle2, Sparkles, Zap, Clock,
+} from 'lucide-react';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import { useApp } from '../context/AppContext';
+
+// ── Toggle switch ─────────────────────────────────────────────────────────────
+function Toggle({ value, onChange }) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+        value ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'
+      }`}
+    >
+      <motion.span
+        animate={{ x: value ? 22 : 2 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm"
+      />
+    </button>
+  );
+}
+
+// ── Setting row ───────────────────────────────────────────────────────────────
+function SettingRow({ label, desc, children }) {
+  return (
+    <div className="flex items-center justify-between py-3.5 border-b border-slate-100 dark:border-slate-800 last:border-0 gap-4">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-slate-900 dark:text-white">{label}</p>
+        {desc && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{desc}</p>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+// ── Section header ─────────────────────────────────────────────────────────────
+function SectionHeader({ icon: Icon, title, subtitle }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center">
+        <Icon size={18} className="text-indigo-500" />
+      </div>
+      <div>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
+        {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+const fadeIn = (delay = 0) => ({
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.35, delay },
+});
+
+// ── Main Settings ─────────────────────────────────────────────────────────────
+export default function Settings() {
+  const { darkMode, setDarkMode } = useApp();
+
+  // Appearance
+  const [themeMode, setThemeMode] = useState(darkMode ? 'dark' : 'light');
+  const [accentColor, setAccentColor] = useState('indigo');
+  const [fontSize, setFontSize] = useState('medium');
+  const [compactMode, setCompactMode] = useState(false);
+  const [animations, setAnimations] = useState(true);
+  const [sidebarBlur, setSidebarBlur] = useState(true);
+
+  // Notifications
+  const [emailNotifs, setEmailNotifs]  = useState(true);
+  const [studyReminders, setStudyReminders] = useState(true);
+  const [weeklyReport, setWeeklyReport]  = useState(true);
+  const [soundEnabled, setSoundEnabled]  = useState(false);
+  const [pushNotifs, setPushNotifs]      = useState(true);
+
+  // AI
+  const [aiModel, setAiModel]           = useState('gpt4');
+  const [responseLength, setResponseLength] = useState('balanced');
+  const [autoSummarize, setAutoSummarize]   = useState(true);
+  const [saveConversations, setSaveConversations] = useState(true);
+  const [contextWindow, setContextWindow]   = useState('full');
+
+  // Study
+  const [dailyGoal, setDailyGoal]       = useState(5);
+  const [reminderTime, setReminderTime] = useState('09:00');
+  const [weeklyTarget, setWeeklyTarget] = useState(30);
+
+  // Privacy
+  const [analyticsData, setAnalyticsData] = useState(true);
+  const [crashReports, setCrashReports]   = useState(true);
+
+  const [saved, setSaved] = useState(false);
+
+  const handleThemeChange = (mode) => {
+    setThemeMode(mode);
+    setDarkMode(mode === 'dark');
+  };
+
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const ACCENT_COLORS = [
+    { name: 'indigo', bg: '#6366f1' },
+    { name: 'purple', bg: '#8b5cf6' },
+    { name: 'cyan',   bg: '#06b6d4' },
+    { name: 'emerald',bg: '#10b981' },
+    { name: 'rose',   bg: '#f43f5e' },
+    { name: 'amber',  bg: '#f59e0b' },
+  ];
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Profile card */}
+      <motion.div {...fadeIn(0)}>
+        <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 border-indigo-100 dark:border-indigo-900">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold shadow-xl shadow-indigo-500/30">
+              A
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Alex Johnson</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">alex.johnson@university.edu</p>
+              <div className="flex gap-2 mt-2">
+                <Badge variant="indigo"><Sparkles size={10} /> Pro Plan</Badge>
+                <Badge variant="success">7-day streak</Badge>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" icon={User} className="ml-auto">
+              Edit Profile
+            </Button>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Appearance */}
+      <motion.div {...fadeIn(0.07)}>
+        <Card>
+          <SectionHeader icon={Palette} title="Appearance" subtitle="Customize the look and feel" />
+
+          {/* Theme mode */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Theme Mode</p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { mode: 'light',  icon: Sun,     label: 'Light' },
+                { mode: 'dark',   icon: Moon,    label: 'Dark' },
+                { mode: 'system', icon: Monitor, label: 'System' },
+              ].map(t => (
+                <button key={t.mode} onClick={() => handleThemeChange(t.mode)}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                    themeMode === t.mode
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}>
+                  <t.icon size={20} className={themeMode === t.mode ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'} />
+                  <span className={`text-sm font-medium ${themeMode === t.mode ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                    {t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Accent color */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Accent Color</p>
+            <div className="flex gap-3 flex-wrap">
+              {ACCENT_COLORS.map(c => (
+                <button key={c.name} onClick={() => setAccentColor(c.name)}
+                  className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${
+                    accentColor === c.name ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-500 scale-110' : ''
+                  }`}
+                  style={{ background: c.bg }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Font size */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Font Size</p>
+            <div className="flex gap-2">
+              {['small','medium','large'].map(s => (
+                <button key={s} onClick={() => setFontSize(s)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-colors ${
+                    fontSize === s
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <SettingRow label="Compact Mode" desc="Reduce padding and spacing">
+            <Toggle value={compactMode} onChange={setCompactMode} />
+          </SettingRow>
+          <SettingRow label="Animations" desc="Enable smooth transitions">
+            <Toggle value={animations} onChange={setAnimations} />
+          </SettingRow>
+          <SettingRow label="Sidebar Blur" desc="Glassmorphism sidebar effect">
+            <Toggle value={sidebarBlur} onChange={setSidebarBlur} />
+          </SettingRow>
+        </Card>
+      </motion.div>
+
+      {/* Notifications */}
+      <motion.div {...fadeIn(0.14)}>
+        <Card>
+          <SectionHeader icon={Bell} title="Notifications" subtitle="Control what alerts you receive" />
+          <SettingRow label="Email Notifications" desc="Receive email alerts for important events">
+            <Toggle value={emailNotifs} onChange={setEmailNotifs} />
+          </SettingRow>
+          <SettingRow label="Study Reminders" desc="Daily reminder to hit your study goal">
+            <Toggle value={studyReminders} onChange={setStudyReminders} />
+          </SettingRow>
+          <SettingRow label="Weekly Progress Report" desc="Get a summary every Sunday">
+            <Toggle value={weeklyReport} onChange={setWeeklyReport} />
+          </SettingRow>
+          <SettingRow label="Push Notifications" desc="Browser push notifications">
+            <Toggle value={pushNotifs} onChange={setPushNotifs} />
+          </SettingRow>
+          <SettingRow label="Sound Effects" desc="Audio cues for actions">
+            <Toggle value={soundEnabled} onChange={setSoundEnabled} />
+          </SettingRow>
+        </Card>
+      </motion.div>
+
+      {/* AI Configuration */}
+      <motion.div {...fadeIn(0.21)}>
+        <Card>
+          <SectionHeader icon={Sparkles} title="AI Configuration" subtitle="Tune your AI assistant behavior" />
+
+          <div className="mb-5">
+            <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">AI Model</p>
+            <div className="space-y-2">
+              {[
+                { id: 'gpt4',   name: 'GPT-4 Turbo', desc: 'Best quality, slightly slower', badge: 'Recommended' },
+                { id: 'gpt35',  name: 'GPT-3.5 Turbo',desc: 'Faster, lower cost' },
+                { id: 'claude', name: 'Claude 3',     desc: 'Great for long documents' },
+              ].map(m => (
+                <label key={m.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border-2 transition-all ${
+                  aiModel === m.id
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30'
+                    : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                }`}>
+                  <input type="radio" name="model" value={m.id} checked={aiModel === m.id}
+                    onChange={() => setAiModel(m.id)} className="accent-indigo-600" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{m.name}</span>
+                      {m.badge && <Badge variant="indigo" className="text-xs">{m.badge}</Badge>}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{m.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">Response Length</p>
+            <div className="flex gap-2">
+              {['concise','balanced','detailed'].map(l => (
+                <button key={l} onClick={() => setResponseLength(l)}
+                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium capitalize transition-colors ${
+                    responseLength === l
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <SettingRow label="Auto-Summarize PDFs" desc="Automatically summarize on upload">
+            <Toggle value={autoSummarize} onChange={setAutoSummarize} />
+          </SettingRow>
+          <SettingRow label="Save Conversations" desc="Persist chat history across sessions">
+            <Toggle value={saveConversations} onChange={setSaveConversations} />
+          </SettingRow>
+        </Card>
+      </motion.div>
+
+      {/* Study Goals */}
+      <motion.div {...fadeIn(0.28)}>
+        <Card>
+          <SectionHeader icon={Clock} title="Study Goals" subtitle="Set your daily and weekly targets" />
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Daily Goal (hours)
+              </label>
+              <div className="flex items-center gap-3">
+                <input type="range" min={1} max={12} value={dailyGoal}
+                  onChange={e => setDailyGoal(Number(e.target.value))}
+                  className="flex-1 accent-indigo-600" />
+                <span className="w-10 text-center text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                  {dailyGoal}h
+                </span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Weekly Target (hours)
+              </label>
+              <div className="flex items-center gap-3">
+                <input type="range" min={5} max={80} step={5} value={weeklyTarget}
+                  onChange={e => setWeeklyTarget(Number(e.target.value))}
+                  className="flex-1 accent-indigo-600" />
+                <span className="w-10 text-center text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                  {weeklyTarget}h
+                </span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Daily Reminder Time
+              </label>
+              <input type="time" value={reminderTime}
+                onChange={e => setReminderTime(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-indigo-500 text-slate-900 dark:text-white" />
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Integrations */}
+      <motion.div {...fadeIn(0.35)}>
+        <Card>
+          <SectionHeader icon={Globe} title="Integrations" subtitle="Connect external services" />
+          {[
+            { name: 'Google Drive', desc: 'Sync and import PDF documents', connected: true, color: '#4285F4' },
+            { name: 'Gmail',        desc: 'Read and reply to emails via AI', connected: true, color: '#EA4335' },
+            { name: 'Notion',       desc: 'Export notes and summaries', connected: false, color: '#000' },
+            { name: 'YouTube',      desc: 'Fetch video recommendations', connected: true, color: '#FF0000' },
+            { name: 'OpenAI API',   desc: 'AI-powered features', connected: true, color: '#10a37f' },
+          ].map(s => (
+            <div key={s.name} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: s.color }}>
+                  {s.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{s.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{s.desc}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {s.connected
+                  ? <Badge variant="success"><CheckCircle2 size={10} /> Connected</Badge>
+                  : <Button variant="outline" size="xs" icon={Key}>Connect</Button>
+                }
+              </div>
+            </div>
+          ))}
+        </Card>
+      </motion.div>
+
+      {/* Privacy */}
+      <motion.div {...fadeIn(0.42)}>
+        <Card>
+          <SectionHeader icon={Shield} title="Privacy & Data" subtitle="Control your data and privacy" />
+          <SettingRow label="Usage Analytics" desc="Help improve the product with anonymous data">
+            <Toggle value={analyticsData} onChange={setAnalyticsData} />
+          </SettingRow>
+          <SettingRow label="Crash Reports" desc="Send error reports automatically">
+            <Toggle value={crashReports} onChange={setCrashReports} />
+          </SettingRow>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" icon={Database}>Export My Data</Button>
+            <Button variant="danger" size="sm">Delete Account</Button>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Save */}
+      <motion.div {...fadeIn(0.49)} className="flex items-center justify-end gap-3 pb-6">
+        <Button variant="ghost">Cancel</Button>
+        <Button variant="primary" size="md" icon={saved ? CheckCircle2 : Sliders} onClick={handleSave}>
+          {saved ? 'Saved!' : 'Save Changes'}
+        </Button>
+      </motion.div>
+    </div>
+  );
+}

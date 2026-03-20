@@ -1,0 +1,429 @@
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Send, Bot, User, Sparkles, Mic, MicOff, Paperclip,
+  Copy, ThumbsUp, ThumbsDown, RotateCcw, Download,
+  BookOpen, Lightbulb, HelpCircle, MessageSquare, Zap,
+  GraduationCap,
+} from 'lucide-react';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import { useApp } from '../context/AppContext';
+import { quickPrompts } from '../data/mockData';
+
+// ── Markdown-like renderer (simple) ─────────────────────────────────────────
+function MessageContent({ content }) {
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line, i) => {
+        if (!line.trim()) return <br key={i} />;
+        // Code block
+        if (line.startsWith('```')) return null;
+        // Heading
+        if (line.startsWith('**') && line.endsWith('**')) {
+          return <p key={i} className="font-bold text-slate-900 dark:text-white">{line.slice(2,-2)}</p>;
+        }
+        // List item
+        if (line.match(/^[-•*]\s/)) {
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+              <span dangerouslySetInnerHTML={{ __html: line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/`(.*?)`/g, '<code class="bg-slate-200 dark:bg-slate-700 px-1 rounded text-xs">$1</code>') }} />
+            </div>
+          );
+        }
+        // Numbered list
+        if (line.match(/^\d+\.\s/)) {
+          const [num, ...rest] = line.split(/\.\s(.+)/);
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">{num}</span>
+              <span dangerouslySetInnerHTML={{ __html: rest.join('').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/`(.*?)`/g, '<code class="bg-slate-200 dark:bg-slate-700 px-1 rounded text-xs font-mono">$1</code>') }} />
+            </div>
+          );
+        }
+        // Code line (indented)
+        if (line.startsWith('`') && line.endsWith('`')) {
+          return (
+            <code key={i} className="block bg-slate-900 dark:bg-slate-950 text-emerald-400 font-mono text-xs px-3 py-2 rounded-lg">
+              {line.slice(1,-1)}
+            </code>
+          );
+        }
+        // Table
+        if (line.includes('|') && line.trim().startsWith('|')) {
+          const cells = line.split('|').filter(c => c.trim());
+          const isSep = cells.every(c => c.trim().match(/^-+$/));
+          if (isSep) return null;
+          return (
+            <div key={i} className="flex gap-3 text-xs border-b border-slate-200 dark:border-slate-700 py-1">
+              {cells.map((c, j) => (
+                <span key={j} className="flex-1 font-medium" dangerouslySetInnerHTML={{ __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+              ))}
+            </div>
+          );
+        }
+        // Regular line
+        return (
+          <p key={i} dangerouslySetInnerHTML={{
+            __html: line
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+              .replace(/`(.*?)`/g, '<code class="bg-slate-200 dark:bg-slate-700 px-1 rounded text-xs font-mono">$1</code>')
+          }} />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Chat bubble ──────────────────────────────────────────────────────────────
+function ChatBubble({ msg, onCopy, onFeedback }) {
+  const isUser = msg.role === 'user';
+  const [liked, setLiked] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+    >
+      {/* Avatar */}
+      <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-bold shadow
+                        ${isUser
+                          ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
+                          : 'bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800'}`}>
+        {isUser ? 'A' : <Bot size={16} />}
+      </div>
+
+      <div className={`max-w-[80%] space-y-1 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
+        <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed
+                          ${isUser
+                            ? 'bg-indigo-600 text-white rounded-tr-sm'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm shadow-sm'}`}>
+          {isUser ? msg.content : <MessageContent content={msg.content} />}
+        </div>
+
+        {/* Actions for assistant */}
+        {!isUser && (
+          <div className="flex items-center gap-1 px-1">
+            <span className="text-xs text-slate-400">
+              {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <button onClick={handleCopy} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+              {copied ? <span className="text-xs text-emerald-500 font-medium">Copied!</span> : <Copy size={12} />}
+            </button>
+            <button onClick={() => setLiked(true)}
+              className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${liked === true ? 'text-emerald-500' : 'text-slate-400'}`}>
+              <ThumbsUp size={12} />
+            </button>
+            <button onClick={() => setLiked(false)}
+              className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${liked === false ? 'text-rose-500' : 'text-slate-400'}`}>
+              <ThumbsDown size={12} />
+            </button>
+          </div>
+        )}
+        {isUser && (
+          <span className="text-xs text-slate-400 px-1">
+            {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Typing indicator ─────────────────────────────────────────────────────────
+function TypingIndicator() {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 flex items-center justify-center text-white shadow">
+        <Bot size={16} />
+      </div>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+        <div className="flex gap-1.5 items-center h-5">
+          {[0,1,2].map(i => (
+            <motion.span key={i} className="w-2 h-2 bg-indigo-400 rounded-full"
+              animate={{ y: [0,-5,0], opacity: [1,0.5,1] }}
+              transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
+            />
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Welcome screen ────────────────────────────────────────────────────────────
+function WelcomeScreen({ onPrompt }) {
+  const features = [
+    { icon: BookOpen,    title: 'PDF Q&A',          desc: 'Ask questions from uploaded documents' },
+    { icon: Lightbulb,  title: 'Concept Explanation',desc: 'Get ELI5 or detailed explanations' },
+    { icon: Zap,        title: 'Quiz Generation',   desc: 'Generate practice quizzes instantly' },
+    { icon: HelpCircle, title: 'Doubt Solving',     desc: 'Resolve any study confusion' },
+  ];
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}>
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/30">
+          <GraduationCap size={36} className="text-white" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Your Study Assistant</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+          Powered by GPT-4 with access to your uploaded PDFs. Ask anything!
+        </p>
+      </motion.div>
+
+      <div className="grid grid-cols-2 gap-3 mt-8 w-full max-w-lg">
+        {features.map((f, i) => (
+          <motion.div key={f.title} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.07 }}>
+            <Card className="text-left p-3">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center mb-2">
+                <f.icon size={15} className="text-indigo-500" />
+              </div>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{f.title}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{f.desc}</p>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="mt-8 flex flex-wrap gap-2 justify-center max-w-lg">
+        {quickPrompts.map(p => (
+          <button key={p} onClick={() => onPrompt(p)}
+            className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium
+                       text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50
+                       hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Chatbot ─────────────────────────────────────────────────────────────
+export default function Chatbot() {
+  const { chatHistory, chatLoading, sendMessage, setChatHistory } = useApp();
+  const [input, setInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const isFirstMessage = chatHistory.length <= 1;
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory, chatLoading]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || chatLoading) return;
+    setInput('');
+    await sendMessage(text);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handlePrompt = (p) => {
+    setInput(p);
+    inputRef.current?.focus();
+  };
+
+  const handleReset = () => {
+    import('../data/mockData.js').then(({ sampleChatHistory }) => {
+      setChatHistory(sampleChatHistory);
+    });
+  };
+
+  const toggleVoice = () => {
+    setIsListening(p => !p);
+    // In a real app, use Web Speech API here
+    if (!isListening) {
+      setTimeout(() => setIsListening(false), 3000);
+    }
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-10rem)]">
+      {/* Chat panel */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <Card className="!p-0 flex-1 flex flex-col overflow-hidden">
+          {/* Chat header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow">
+                <Bot size={16} className="text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Study AI</p>
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full pulse-dot" />
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Online · GPT-4</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge variant="indigo"><Sparkles size={10} /> PDF context loaded</Badge>
+              <button onClick={handleReset} className="p-1.5 ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors" title="Clear chat">
+                <RotateCcw size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {isFirstMessage ? (
+              <WelcomeScreen onPrompt={handlePrompt} />
+            ) : (
+              <div className="space-y-6">
+                {chatHistory.map((msg, i) => (
+                  <ChatBubble key={i} msg={msg} />
+                ))}
+                {chatLoading && <TypingIndicator />}
+                <div ref={bottomRef} />
+              </div>
+            )}
+          </div>
+
+          {/* Quick prompts */}
+          {!isFirstMessage && (
+            <div className="px-4 pt-2 flex gap-2 overflow-x-auto pb-1">
+              {quickPrompts.slice(0, 4).map(p => (
+                <button key={p} onClick={() => handlePrompt(p)}
+                  className="whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium
+                             text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50
+                             hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0">
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input bar */}
+          <div className="p-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask anything from your study materials…"
+                  rows={1}
+                  style={{ resize: 'none', minHeight: '44px', maxHeight: '120px' }}
+                  className="w-full px-4 py-2.5 pr-10 text-sm rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700
+                             focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 outline-none text-slate-900 dark:text-white
+                             placeholder-slate-400 transition-colors leading-relaxed"
+                  onInput={e => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                  }}
+                />
+                <button onClick={() => {}}
+                  className="absolute right-2.5 bottom-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                  <Paperclip size={15} />
+                </button>
+              </div>
+
+              {/* Voice button */}
+              <button onClick={toggleVoice}
+                className={`p-2.5 rounded-xl transition-colors ${
+                  isListening
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}>
+                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+
+              {/* Send */}
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleSend}
+                disabled={!input.trim() || chatLoading}
+                className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors shadow-sm shadow-indigo-500/25"
+              >
+                <Send size={18} />
+              </motion.button>
+            </div>
+            <p className="text-xs text-slate-400 text-center mt-2">
+              Press Enter to send · Shift+Enter for new line
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Sidebar panel */}
+      <div className="w-full lg:w-64 xl:w-72 space-y-4 shrink-0">
+        {/* Context */}
+        <Card>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+            <BookOpen size={15} className="text-indigo-500" /> Context Documents
+          </h3>
+          <div className="space-y-2">
+            {[
+              { name: 'Introduction_to_ML.pdf', pages: 24, active: true },
+              { name: 'Deep_Learning_Guide.pdf', pages: 48, active: false },
+            ].map(doc => (
+              <div key={doc.name} className={`flex items-center gap-2 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                doc.active
+                  ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900'
+                  : 'hover:bg-slate-50 dark:hover:bg-slate-800 opacity-60'
+              }`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                  doc.active ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                }`}>
+                  PDF
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{doc.name}</p>
+                  <p className="text-xs text-slate-400">{doc.pages} pages</p>
+                </div>
+                {doc.active && <Badge variant="indigo" className="text-xs shrink-0">Active</Badge>}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Stats */}
+        <Card>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+            <MessageSquare size={15} className="text-indigo-500" /> Session Stats
+          </h3>
+          {[
+            { label: 'Messages',   value: chatHistory.length },
+            { label: 'AI Responses', value: chatHistory.filter(m=>m.role==='assistant').length },
+            { label: 'Topics Covered', value: '4' },
+          ].map(s => (
+            <div key={s.label} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+              <span className="text-xs text-slate-500 dark:text-slate-400">{s.label}</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white">{s.value}</span>
+            </div>
+          ))}
+        </Card>
+
+        {/* Export */}
+        <Card>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Export Chat</h3>
+          <Button variant="outline" size="sm" icon={Download} fullWidth>
+            Download as PDF
+          </Button>
+        </Card>
+      </div>
+    </div>
+  );
+}
